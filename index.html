@@ -11,7 +11,6 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Outfit:wght@300;500;700;900&display=swap" rel="stylesheet">
-    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root { --safe-top: env(safe-area-inset-top, 0px); --safe-bottom: env(safe-area-inset-bottom, 0px); }
@@ -30,13 +29,15 @@
             padding-bottom: var(--safe-bottom);
         }
 
-        /* Codes bar */
+        /* ── Codes bar ── */
         .codes-bar {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 8px;
             padding: 10px 10px 6px;
             flex-shrink: 0;
+            position: relative;
+            z-index: 20;
         }
         .code-card {
             background: #12121a;
@@ -47,8 +48,9 @@
             cursor: pointer;
             -webkit-tap-highlight-color: transparent;
             transition: all 0.15s;
+            touch-action: manipulation;
         }
-        .code-card:active { transform: scale(0.97); }
+        .code-card:active { transform: scale(0.97); background: #1a1a2a; }
         .code-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; }
         .code-card.mikra::before { background: linear-gradient(90deg, #9C27B0, #E040FB); }
         .code-card.chaya::before { background: linear-gradient(90deg, #FF6B00, #FFB74D); }
@@ -61,7 +63,7 @@
         .code-value.missing { font-size:11px; color:#ff5252; letter-spacing:0; }
         .code-hint { text-align:center; font-size:8px; color:#333; }
 
-        /* Scanner */
+        /* ── Scanner ── */
         .scanner-area { flex:1; padding:0 10px 6px; min-height:0; display:flex; flex-direction:column; }
         .scanner-box {
             flex:1; background:#000; border:1px solid #1e1e2e;
@@ -73,10 +75,34 @@
         #qr-reader__scan_region { min-height:100% !important; }
         #qr-reader__dashboard, #qr-reader__dashboard_section,
         #qr-reader__dashboard_section_csr, #qr-reader__header_message,
-        #qr-reader__status_span, #qr-reader img[alt="Info icon"] { display:none !important; }
+        #qr-reader__status_span, #qr-reader img[alt="Info icon"],
+        #qr-reader__filescan_input { display:none !important; }
 
-        .scanner-placeholder { text-align:center; color:#444; padding:40px; }
-        .scanner-placeholder .icon { font-size:48px; margin-bottom:10px; }
+        .scanner-msg {
+            position:absolute; inset:0;
+            display:flex; flex-direction:column;
+            align-items:center; justify-content:center;
+            text-align:center; padding:20px;
+            z-index:5;
+        }
+        .scanner-msg .icon { font-size:48px; margin-bottom:12px; }
+        .scanner-msg .text { font-size:13px; color:#888; margin-bottom:16px; line-height:1.4; }
+        .scanner-msg .error-text { font-size:11px; color:#ff5252; margin-bottom:16px; line-height:1.4; }
+
+        .cam-btn {
+            background: linear-gradient(135deg, #3483FA, #2563eb);
+            color: white; border: none;
+            padding: 14px 32px; border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 15px; font-weight: 700;
+            cursor: pointer;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .cam-btn:active { transform: scale(0.97); }
+        .cam-btn.retry {
+            background: linear-gradient(135deg, #FF6B00, #ff8f00);
+        }
 
         /* Result overlay */
         .result-overlay {
@@ -88,8 +114,8 @@
             padding:16px 28px; border-radius:16px; text-align:center;
             backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
         }
-        .result-bubble.match { background:rgba(0,230,118,0.9); color:#000; }
-        .result-bubble.no-match { background:rgba(255,82,82,0.9); color:#fff; }
+        .result-bubble.match { background:rgba(0,230,118,0.92); color:#000; }
+        .result-bubble.no-match { background:rgba(255,82,82,0.92); color:#fff; }
         .result-icon { font-size:36px; }
         .result-code { font-family:'JetBrains Mono',monospace; font-size:20px; font-weight:800; margin:4px 0; }
         .result-detail { font-size:12px; font-weight:600; }
@@ -127,6 +153,15 @@
             100% { background:#12121a; border-color:#1e1e2e; }
         }
         .flash { animation: flash-copy 0.4s ease; }
+
+        /* Debug log */
+        .debug-log {
+            position:fixed; bottom:0; left:0; right:0;
+            background:rgba(0,0,0,0.9); color:#0f0;
+            font-family:'JetBrains Mono',monospace; font-size:9px;
+            padding:4px 8px; max-height:60px; overflow-y:auto;
+            z-index:100; display:none;
+        }
     </style>
 </head>
 <body>
@@ -153,9 +188,10 @@
         <div class="scanner-area">
             <div class="scanner-box" id="scannerBox">
                 <div id="qr-reader"></div>
-                <div class="scanner-placeholder" id="scannerPlaceholder">
+                <div class="scanner-msg" id="scannerMsg">
                     <div class="icon">📷</div>
-                    <div style="font-size:13px">Iniciando cámara...</div>
+                    <div class="text">Escáner de códigos QR</div>
+                    <button class="cam-btn" id="camBtn" onclick="iniciarCamara()">Abrir cámara</button>
                 </div>
                 <div class="result-overlay" id="resultOverlay">
                     <div class="result-bubble" id="resultBubble">
@@ -171,20 +207,38 @@
     </div>
 
     <div class="toast" id="toast"></div>
+    <div class="debug-log" id="debugLog"></div>
 
     <script>
         const WORKER_URL = 'https://ml-auth-codes.rafaelassir.workers.dev';
         let codes = { mikra: null, chaya: null };
         let scanner = null;
+        let scannerRunning = false;
         let scanHistory = [];
         let lastScannedCode = '';
         let lastScanTime = 0;
 
+        // Debug helper (triple-tap title to show)
+        let debugTaps = 0;
+        function dbg(msg) {
+            console.log('[Auth]', msg);
+            const el = document.getElementById('debugLog');
+            el.innerHTML += msg + '<br>';
+            el.scrollTop = el.scrollHeight;
+        }
+        document.querySelector('.codes-bar')?.addEventListener('dblclick', () => {
+            const el = document.getElementById('debugLog');
+            el.style.display = el.style.display === 'none' ? 'block' : 'none';
+        });
+
+        // ── Load codes ──
         async function cargarCodigos() {
+            dbg('Cargando códigos...');
             try {
                 const resp = await fetch(`${WORKER_URL}/get-all`);
                 const data = await resp.json();
                 codes = data;
+                dbg(`Códigos: mikra=${data.mikra?.code || 'null'} chaya=${data.chaya?.code || 'null'}`);
 
                 if (data.mikra?.code) {
                     document.getElementById('codeMikra').textContent = data.mikra.code;
@@ -204,24 +258,22 @@
                     document.getElementById('codeChaya').className = 'code-value missing';
                 }
 
-                // Auto-copy: Chaya first, then Mikra (Mikra stays in clipboard)
+                // Auto-copy: Chaya → Mikra (Mikra queda en clipboard)
                 try {
-                    if (data.chaya?.code) {
-                        await navigator.clipboard.writeText(data.chaya.code);
-                        flashCard('cardChaya');
-                    }
-                    await new Promise(r => setTimeout(r, 300));
+                    if (data.chaya?.code) await navigator.clipboard.writeText(data.chaya.code);
                     if (data.mikra?.code) {
                         await navigator.clipboard.writeText(data.mikra.code);
-                        flashCard('cardMikra');
                         showToast('📋 MIKRA copiado');
                     }
-                } catch(e) {}
+                } catch(e) {
+                    dbg('Clipboard no disponible: ' + e.message);
+                }
             } catch (e) {
-                console.error('Error:', e);
+                dbg('Error cargando: ' + e.message);
             }
         }
 
+        // ── Copy on tap ──
         async function copiar(cuenta) {
             const code = codes[cuenta]?.code;
             if (!code) return;
@@ -229,12 +281,77 @@
                 await navigator.clipboard.writeText(code);
                 flashCard(cuenta === 'mikra' ? 'cardMikra' : 'cardChaya');
                 showToast(`📋 ${cuenta.toUpperCase()}: ${code}`);
-            } catch(e) {}
+            } catch(e) {
+                // Fallback: select + copy
+                const ta = document.createElement('textarea');
+                ta.value = code;
+                ta.style.cssText = 'position:fixed;opacity:0';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                flashCard(cuenta === 'mikra' ? 'cardMikra' : 'cardChaya');
+                showToast(`📋 ${cuenta.toUpperCase()}: ${code}`);
+            }
         }
 
-        async function initScanner() {
+        // ── Camera / Scanner ──
+        async function iniciarCamara() {
+            const msg = document.getElementById('scannerMsg');
+            const btn = document.getElementById('camBtn');
+
+            // Check basics
+            if (!window.isSecureContext) {
+                msg.innerHTML = `
+                    <div class="icon">🔒</div>
+                    <div class="error-text">La cámara necesita HTTPS.<br>Abrí la app desde GitHub Pages o localhost.</div>
+                    <button class="cam-btn retry" onclick="iniciarCamara()">Reintentar</button>
+                `;
+                dbg('No es contexto seguro (HTTPS)');
+                return;
+            }
+
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                msg.innerHTML = `
+                    <div class="icon">📵</div>
+                    <div class="error-text">Este navegador no soporta cámara.<br>Probá abrir en Chrome o Safari.</div>
+                    <button class="cam-btn retry" onclick="iniciarCamara()">Reintentar</button>
+                `;
+                dbg('getUserMedia no disponible');
+                return;
+            }
+
+            if (typeof Html5Qrcode === 'undefined') {
+                msg.innerHTML = `
+                    <div class="icon">⚠️</div>
+                    <div class="error-text">Error cargando librería QR.<br>Verificá la conexión a internet.</div>
+                    <button class="cam-btn retry" onclick="location.reload()">Recargar</button>
+                `;
+                dbg('Html5Qrcode no está definido');
+                return;
+            }
+
+            btn.textContent = 'Abriendo...';
+            btn.disabled = true;
+            dbg('Iniciando cámara...');
+
             try {
+                // Ask permission explicitly first
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' }
+                });
+                // Stop it immediately - just to get permission
+                stream.getTracks().forEach(t => t.stop());
+                dbg('Permiso de cámara OK');
+
+                // Now start QR scanner
+                if (scanner && scannerRunning) {
+                    await scanner.stop();
+                    scannerRunning = false;
+                }
+
                 scanner = new Html5Qrcode("qr-reader");
+
                 const box = document.getElementById('scannerBox');
                 const w = box.clientWidth;
                 const h = box.clientHeight;
@@ -242,14 +359,36 @@
 
                 await scanner.start(
                     { facingMode: "environment" },
-                    { fps: 10, qrbox: { width: qrSize, height: qrSize }, disableFlip: false },
+                    {
+                        fps: 10,
+                        qrbox: { width: Math.max(qrSize, 150), height: Math.max(qrSize, 150) },
+                        disableFlip: false
+                    },
                     onScanSuccess,
                     () => {}
                 );
-                document.getElementById('scannerPlaceholder').style.display = 'none';
+
+                scannerRunning = true;
+                msg.style.display = 'none';
+                dbg('Cámara iniciada OK');
+
             } catch (err) {
-                document.getElementById('scannerPlaceholder').innerHTML =
-                    `<div class="icon">📵</div><div style="font-size:12px;color:#ff5252">No se pudo abrir la cámara</div>`;
+                dbg('Error cámara: ' + err);
+                let errorMsg = 'No se pudo abrir la cámara.';
+
+                if (String(err).includes('NotAllowed') || String(err).includes('Permission')) {
+                    errorMsg = 'Permiso de cámara denegado.<br>Andá a Configuración del navegador y habilitá la cámara para este sitio.';
+                } else if (String(err).includes('NotFound') || String(err).includes('DevicesNotFound')) {
+                    errorMsg = 'No se encontró cámara en este dispositivo.';
+                } else if (String(err).includes('NotReadable') || String(err).includes('TrackStartError')) {
+                    errorMsg = 'La cámara está en uso por otra app.<br>Cerrá otras apps y reintentá.';
+                }
+
+                msg.innerHTML = `
+                    <div class="icon">📵</div>
+                    <div class="error-text">${errorMsg}</div>
+                    <button class="cam-btn retry" onclick="iniciarCamara()">Reintentar</button>
+                `;
             }
         }
 
@@ -267,6 +406,8 @@
             let match = false, cuenta = '';
             if (code === mk) { match = true; cuenta = 'mikra'; }
             else if (code === ch) { match = true; cuenta = 'chaya'; }
+
+            dbg(`Escaneado: ${code} → ${match ? cuenta.toUpperCase() + ' ✅' : '❌'}`);
 
             if (navigator.vibrate) navigator.vibrate(match ? [100] : [80, 40, 80, 40, 80]);
             playBeep(match);
@@ -296,20 +437,19 @@
             }).join('');
         }
 
+        // ── Helpers ──
         function flashCard(id) {
             const el = document.getElementById(id);
             el.classList.remove('flash');
             void el.offsetWidth;
             el.classList.add('flash');
         }
-
         function showToast(msg) {
             const t = document.getElementById('toast');
             t.textContent = msg;
             t.classList.add('show');
             setTimeout(() => t.classList.remove('show'), 2000);
         }
-
         function formatTime(iso) {
             if (!iso) return '';
             const d = new Date(iso), min = Math.floor((Date.now() - d) / 60000);
@@ -319,7 +459,6 @@
             if (h < 24) return `${h}h`;
             return d.toLocaleDateString('es-AR');
         }
-
         function playBeep(ok) {
             try {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -330,10 +469,16 @@
             } catch(e) {}
         }
 
-        // Init
+        // ── Init ──
         cargarCodigos();
-        setTimeout(initScanner, 500);
         setInterval(cargarCodigos, 5 * 60 * 1000);
+
+        // Auto-start camera on HTTPS
+        if (window.isSecureContext && typeof Html5Qrcode !== 'undefined') {
+            setTimeout(iniciarCamara, 800);
+        } else {
+            dbg('Esperando click manual. Secure=' + window.isSecureContext + ' QRLib=' + (typeof Html5Qrcode !== 'undefined'));
+        }
 
         if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
     </script>
