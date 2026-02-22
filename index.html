@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Auth Codes ML</title>
+    <meta name="theme-color" content="#0a0a0f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Auth ML">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Outfit:wght@300;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: #0a0a0f;
+            color: #e8e8f0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 420px;
+            width: 100%;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 20px;
+            font-weight: 900;
+            text-align: center;
+            margin-bottom: 20px;
+            letter-spacing: -0.5px;
+        }
+        h1 span { color: #FFE600; }
+
+        .code-card {
+            background: #12121a;
+            border: 1px solid #1e1e2e;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 12px;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .code-card:active { transform: scale(0.98); }
+        .code-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+        }
+        .code-card.mikra::before { background: linear-gradient(90deg, #9C27B0, #E040FB); }
+        .code-card.chaya::before { background: linear-gradient(90deg, #FF6B00, #FFB74D); }
+
+        .code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .code-label {
+            font-size: 14px;
+            font-weight: 700;
+        }
+        .code-card.mikra .code-label { color: #E040FB; }
+        .code-card.chaya .code-label { color: #FFB74D; }
+
+        .code-status {
+            font-size: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            color: #444;
+        }
+
+        .code-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 36px;
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: 4px;
+            text-align: center;
+            padding: 10px 0;
+        }
+
+        .code-hint {
+            text-align: center;
+            font-size: 11px;
+            color: #444;
+        }
+
+        .copied-toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-60px);
+            background: #00a650;
+            color: white;
+            padding: 10px 24px;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 14px;
+            z-index: 999;
+            opacity: 0;
+            transition: all 0.3s ease;
+            pointer-events: none;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .copied-toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .auto-copy-status {
+            text-align: center;
+            margin-bottom: 16px;
+            font-size: 12px;
+            min-height: 20px;
+        }
+        .auto-copy-status.ok { color: #00e676; }
+        .auto-copy-status.loading { color: #888; }
+        .auto-copy-status.error { color: #ff5252; }
+
+        .reload-btn {
+            display: block;
+            width: 100%;
+            background: none;
+            border: 1px solid #222;
+            color: #666;
+            padding: 12px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 8px;
+        }
+        .reload-btn:hover { border-color: #FFE600; color: #FFE600; }
+        .reload-btn:disabled { opacity: 0.3; }
+
+        .last-update {
+            text-align: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            color: #333;
+            margin-top: 12px;
+        }
+
+        @keyframes flash-copy {
+            0% { background: #12121a; }
+            50% { background: #1a2a1a; }
+            100% { background: #12121a; }
+        }
+        .flash { animation: flash-copy 0.4s ease; }
+
+        .loading-dots::after {
+            content: '';
+            animation: dots 1.5s steps(4) infinite;
+        }
+        @keyframes dots {
+            0% { content: ''; }
+            25% { content: '.'; }
+            50% { content: '..'; }
+            75% { content: '...'; }
+        }
+
+        .code-missing {
+            font-size: 14px;
+            color: #ff5252;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔑 <span>Auth Codes</span></h1>
+
+        <div class="auto-copy-status loading" id="autoCopyStatus">
+            <span class="loading-dots">Cargando códigos</span>
+        </div>
+
+        <div class="code-card mikra" id="cardMikra" onclick="copiar('mikra')">
+            <div class="code-header">
+                <div class="code-label">MIKRA</div>
+                <div class="code-status" id="timeMikra"></div>
+            </div>
+            <div class="code-value" id="codeMikra">---</div>
+            <div class="code-hint">Tocar para copiar</div>
+        </div>
+
+        <div class="code-card chaya" id="cardChaya" onclick="copiar('chaya')">
+            <div class="code-header">
+                <div class="code-label">CHAYA</div>
+                <div class="code-status" id="timeChaya"></div>
+            </div>
+            <div class="code-value" id="codeChaya">---</div>
+            <div class="code-hint">Tocar para copiar</div>
+        </div>
+
+        <button class="reload-btn" id="reloadBtn" onclick="cargarYCopiar()">⟳ Actualizar y copiar</button>
+
+        <div class="last-update" id="lastUpdate"></div>
+    </div>
+
+    <div class="copied-toast" id="toast"></div>
+
+    <script>
+        const WORKER_URL = 'https://ml-auth-codes.rafaelassir.workers.dev';
+        let codes = { mikra: null, chaya: null };
+
+        async function cargarYCopiar() {
+            const btn = document.getElementById('reloadBtn');
+            const status = document.getElementById('autoCopyStatus');
+            btn.disabled = true;
+            status.className = 'auto-copy-status loading';
+            status.innerHTML = '<span class="loading-dots">Cargando</span>';
+
+            try {
+                const resp = await fetch(`${WORKER_URL}/get-all`);
+                const data = await resp.json();
+                codes = data;
+
+                // Mostrar Mikra
+                if (data.mikra?.code) {
+                    document.getElementById('codeMikra').textContent = data.mikra.code;
+                    document.getElementById('timeMikra').textContent = formatTime(data.mikra.updated);
+                } else {
+                    document.getElementById('codeMikra').innerHTML = '<span class="code-missing">Sin código</span>';
+                    document.getElementById('timeMikra').textContent = '';
+                }
+
+                // Mostrar Chaya
+                if (data.chaya?.code) {
+                    document.getElementById('codeChaya').textContent = data.chaya.code;
+                    document.getElementById('timeChaya').textContent = formatTime(data.chaya.updated);
+                } else {
+                    document.getElementById('codeChaya').innerHTML = '<span class="code-missing">Sin código</span>';
+                    document.getElementById('timeChaya').textContent = '';
+                }
+
+                // Auto-copiar: primero Chaya, después Mikra (Mikra queda en clipboard)
+                let copied = [];
+
+                if (data.chaya?.code) {
+                    await navigator.clipboard.writeText(data.chaya.code);
+                    flashCard('cardChaya');
+                    copied.push('Chaya');
+                }
+
+                // Pequeña pausa para que se vea el flash
+                await new Promise(r => setTimeout(r, 400));
+
+                if (data.mikra?.code) {
+                    await navigator.clipboard.writeText(data.mikra.code);
+                    flashCard('cardMikra');
+                    copied.push('Mikra');
+                }
+
+                if (copied.length > 0) {
+                    const last = copied[copied.length - 1];
+                    status.className = 'auto-copy-status ok';
+                    status.textContent = `✅ Copiado: ${last.toUpperCase()} en portapapeles`;
+                    showToast(`📋 ${last.toUpperCase()} copiado`);
+                } else {
+                    status.className = 'auto-copy-status error';
+                    status.textContent = '❌ No hay códigos cargados';
+                }
+
+            } catch (e) {
+                console.error(e);
+                status.className = 'auto-copy-status error';
+                status.textContent = '❌ Error cargando códigos';
+            }
+
+            btn.disabled = false;
+            document.getElementById('lastUpdate').textContent =
+                `Actualizado: ${new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}`;
+        }
+
+        async function copiar(cuenta) {
+            const code = codes[cuenta]?.code;
+            if (!code) return;
+
+            try {
+                await navigator.clipboard.writeText(code);
+                flashCard(cuenta === 'mikra' ? 'cardMikra' : 'cardChaya');
+                showToast(`📋 ${cuenta.toUpperCase()}: ${code}`);
+                
+                const status = document.getElementById('autoCopyStatus');
+                status.className = 'auto-copy-status ok';
+                status.textContent = `✅ ${cuenta.toUpperCase()} en portapapeles`;
+            } catch (e) {
+                showToast('❌ No se pudo copiar');
+            }
+        }
+
+        function flashCard(id) {
+            const el = document.getElementById(id);
+            el.classList.remove('flash');
+            void el.offsetWidth; // force reflow
+            el.classList.add('flash');
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2000);
+        }
+
+        function formatTime(isoStr) {
+            if (!isoStr) return '';
+            const d = new Date(isoStr);
+            const now = new Date();
+            const diffMin = Math.floor((now - d) / 60000);
+            if (diffMin < 1) return 'recién';
+            if (diffMin < 60) return `hace ${diffMin}min`;
+            const diffH = Math.floor(diffMin / 60);
+            if (diffH < 24) return `hace ${diffH}h`;
+            return d.toLocaleDateString('es-AR');
+        }
+
+        // Cargar al inicio
+        cargarYCopiar();
+
+        // Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(() => {});
+        }
+    </script>
+</body>
+</html>
