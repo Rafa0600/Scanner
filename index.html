@@ -14,471 +14,374 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root { --safe-top: env(safe-area-inset-top, 0px); --safe-bottom: env(safe-area-inset-bottom, 0px); }
+
         body {
             font-family: 'Outfit', sans-serif;
             background: #0a0a0f;
             color: #e8e8f0;
-            height: 100vh; height: 100dvh;
-            overflow: hidden;
+            min-height: 100vh; min-height: 100dvh;
         }
+
         .app {
             display: flex;
             flex-direction: column;
-            height: 100vh; height: 100dvh;
-            padding-top: var(--safe-top);
-            padding-bottom: var(--safe-bottom);
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh; min-height: 100dvh;
+            padding: 20px 16px;
+            padding-top: calc(20px + var(--safe-top));
+            padding-bottom: calc(20px + var(--safe-bottom));
+            gap: 16px;
         }
 
-        /* ── Codes bar ── */
-        .codes-bar {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-            padding: 10px 10px 6px;
-            flex-shrink: 0;
-            position: relative;
-            z-index: 20;
+        h1 {
+            font-size: 18px;
+            font-weight: 900;
+            text-align: center;
+            letter-spacing: -0.5px;
         }
+        h1 span { color: #FFE600; }
+
+        /* Code cards */
         .code-card {
+            width: 100%;
+            max-width: 400px;
             background: #12121a;
             border: 1px solid #1e1e2e;
-            border-radius: 12px;
-            padding: 8px 10px;
-            position: relative; overflow: hidden;
+            border-radius: 20px;
+            padding: 24px 20px;
+            position: relative;
+            overflow: hidden;
             cursor: pointer;
             -webkit-tap-highlight-color: transparent;
-            transition: all 0.15s;
             touch-action: manipulation;
+            transition: all 0.15s;
         }
-        .code-card:active { transform: scale(0.97); background: #1a1a2a; }
-        .code-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; }
+        .code-card:active { transform: scale(0.98); background: #1a1a2a; }
+        .code-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 4px;
+        }
         .code-card.mikra::before { background: linear-gradient(90deg, #9C27B0, #E040FB); }
         .code-card.chaya::before { background: linear-gradient(90deg, #FF6B00, #FFB74D); }
-        .code-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:2px; }
-        .code-label { font-size:11px; font-weight:700; }
-        .code-card.mikra .code-label { color:#E040FB; }
-        .code-card.chaya .code-label { color:#FFB74D; }
-        .code-time { font-family:'JetBrains Mono',monospace; font-size:8px; color:#444; }
-        .code-value { font-family:'JetBrains Mono',monospace; font-size:20px; font-weight:800; color:#fff; letter-spacing:2px; text-align:center; }
-        .code-value.missing { font-size:11px; color:#ff5252; letter-spacing:0; }
-        .code-hint { text-align:center; font-size:8px; color:#333; }
 
-        /* ── Scanner ── */
-        .scanner-area { flex:1; padding:0 10px 6px; min-height:0; display:flex; flex-direction:column; }
-        .scanner-box {
-            flex:1; background:#000; border:1px solid #1e1e2e;
-            border-radius:16px; overflow:hidden; position:relative;
-            display:flex; align-items:center; justify-content:center;
+        .code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
         }
-        #qr-reader { width:100%; height:100%; }
-        #qr-reader video { border-radius:14px !important; object-fit:cover !important; }
-        #qr-reader__scan_region { min-height:100% !important; }
-        #qr-reader__dashboard, #qr-reader__dashboard_section,
-        #qr-reader__dashboard_section_csr, #qr-reader__header_message,
-        #qr-reader__status_span, #qr-reader img[alt="Info icon"],
-        #qr-reader__filescan_input { display:none !important; }
 
-        .scanner-msg {
-            position:absolute; inset:0;
-            display:flex; flex-direction:column;
-            align-items:center; justify-content:center;
-            text-align:center; padding:20px;
-            z-index:5;
+        .code-label {
+            font-size: 14px;
+            font-weight: 700;
         }
-        .scanner-msg .icon { font-size:48px; margin-bottom:12px; }
-        .scanner-msg .text { font-size:13px; color:#888; margin-bottom:16px; line-height:1.4; }
-        .scanner-msg .error-text { font-size:11px; color:#ff5252; margin-bottom:16px; line-height:1.4; }
+        .code-card.mikra .code-label { color: #E040FB; }
+        .code-card.chaya .code-label { color: #FFB74D; }
 
-        .cam-btn {
-            background: linear-gradient(135deg, #3483FA, #2563eb);
-            color: white; border: none;
-            padding: 14px 32px; border-radius: 12px;
+        .code-time {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: #444;
+        }
+
+        .code-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 44px;
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: 6px;
+            text-align: center;
+            padding: 8px 0;
+            word-break: break-all;
+        }
+
+        .code-hint {
+            text-align: center;
+            font-size: 10px;
+            color: #333;
+        }
+
+        /* Expired / outdated */
+        .code-card.expired {
+            opacity: 0.4;
+            border-color: #ff525244;
+        }
+        .code-card.expired .code-value {
+            color: #ff5252;
+            text-decoration: line-through;
+            text-decoration-color: #ff525266;
+        }
+
+        .expired-badge {
+            display: none;
+            text-align: center;
+            font-size: 11px;
+            color: #ff5252;
+            font-weight: 600;
+            margin-top: 4px;
+        }
+        .code-card.expired .expired-badge { display: block; }
+
+        /* Missing */
+        .code-value.missing {
+            font-size: 16px;
+            color: #ff5252;
+            letter-spacing: 0;
+        }
+
+        /* Status */
+        .status-msg {
+            text-align: center;
+            font-size: 12px;
+            min-height: 18px;
+        }
+        .status-msg.ok { color: #00e676; }
+        .status-msg.loading { color: #888; }
+        .status-msg.error { color: #ff5252; }
+        .status-msg.warn { color: #FFE600; }
+
+        /* Reload */
+        .reload-btn {
+            background: none;
+            border: 1px solid #222;
+            color: #666;
+            padding: 10px 24px;
+            border-radius: 10px;
             font-family: 'Outfit', sans-serif;
-            font-size: 15px; font-weight: 700;
+            font-size: 13px;
             cursor: pointer;
             touch-action: manipulation;
             -webkit-tap-highlight-color: transparent;
+            transition: all 0.2s;
         }
-        .cam-btn:active { transform: scale(0.97); }
-        .cam-btn.retry {
-            background: linear-gradient(135deg, #FF6B00, #ff8f00);
-        }
-
-        /* Result overlay */
-        .result-overlay {
-            position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-            z-index:10; pointer-events:none; opacity:0; transition:opacity 0.2s;
-        }
-        .result-overlay.show { opacity:1; }
-        .result-bubble {
-            padding:16px 28px; border-radius:16px; text-align:center;
-            backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
-        }
-        .result-bubble.match { background:rgba(0,230,118,0.92); color:#000; }
-        .result-bubble.no-match { background:rgba(255,82,82,0.92); color:#fff; }
-        .result-icon { font-size:36px; }
-        .result-code { font-family:'JetBrains Mono',monospace; font-size:20px; font-weight:800; margin:4px 0; }
-        .result-detail { font-size:12px; font-weight:600; }
-
-        /* History */
-        .history-bar { flex-shrink:0; padding:4px 10px 8px; max-height:100px; overflow-y:auto; }
-        .history-item {
-            display:flex; justify-content:space-between; align-items:center;
-            padding:5px 8px; background:#12121a; border-radius:8px; margin-bottom:3px; font-size:11px;
-        }
-        .history-item.match { border-left:3px solid #00e676; }
-        .history-item.no-match { border-left:3px solid #ff5252; }
-        .history-code { font-family:'JetBrains Mono',monospace; font-weight:700; font-size:10px; }
-        .history-cuenta {
-            display:inline-block; padding:1px 4px; border-radius:4px;
-            font-size:7px; font-weight:700; margin-left:3px;
-        }
-        .history-cuenta.mikra { background:#9C27B0; color:white; }
-        .history-cuenta.chaya { background:#FF6B00; color:white; }
-        .history-time { font-family:'JetBrains Mono',monospace; font-size:8px; color:#555; }
+        .reload-btn:active { border-color: #FFE600; color: #FFE600; }
+        .reload-btn:disabled { opacity: 0.3; }
 
         /* Toast */
         .toast {
-            position:fixed; top:calc(10px + var(--safe-top)); left:50%;
-            transform:translateX(-50%) translateY(-60px);
-            background:#00a650; color:white; padding:7px 18px; border-radius:10px;
-            font-weight:700; font-size:12px; z-index:999; opacity:0; transition:all 0.3s;
-            pointer-events:none; font-family:'JetBrains Mono',monospace; white-space:nowrap;
+            position: fixed;
+            top: calc(14px + var(--safe-top));
+            left: 50%;
+            transform: translateX(-50%) translateY(-60px);
+            background: #00a650;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 13px;
+            z-index: 999;
+            opacity: 0;
+            transition: all 0.3s ease;
+            pointer-events: none;
+            font-family: 'JetBrains Mono', monospace;
+            white-space: nowrap;
         }
-        .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
 
         @keyframes flash-copy {
-            0% { background:#12121a; }
-            50% { background:#1a2a1a; border-color:#00e676; }
-            100% { background:#12121a; border-color:#1e1e2e; }
+            0% { background: #12121a; }
+            50% { background: #1a2a1a; border-color: #00e676; }
+            100% { background: #12121a; border-color: #1e1e2e; }
         }
-        .flash { animation: flash-copy 0.4s ease; }
-
-        /* Debug log */
-        .debug-log {
-            position:fixed; bottom:0; left:0; right:0;
-            background:rgba(0,0,0,0.9); color:#0f0;
-            font-family:'JetBrains Mono',monospace; font-size:9px;
-            padding:4px 8px; max-height:60px; overflow-y:auto;
-            z-index:100; display:none;
-        }
+        .flash { animation: flash-copy 0.5s ease; }
     </style>
 </head>
 <body>
     <div class="app">
-        <div class="codes-bar">
-            <div class="code-card mikra" id="cardMikra" onclick="copiar('mikra')">
-                <div class="code-top">
-                    <div class="code-label">MIKRA</div>
-                    <div class="code-time" id="timeMikra"></div>
-                </div>
-                <div class="code-value" id="codeMikra">---</div>
-                <div class="code-hint">tocar = copiar</div>
+        <h1>🔑 <span>Auth Codes</span></h1>
+
+        <div class="status-msg loading" id="status">Cargando...</div>
+
+        <div class="code-card mikra" id="cardMikra" onclick="copiar('mikra')">
+            <div class="code-header">
+                <div class="code-label">MIKRA</div>
+                <div class="code-time" id="timeMikra"></div>
             </div>
-            <div class="code-card chaya" id="cardChaya" onclick="copiar('chaya')">
-                <div class="code-top">
-                    <div class="code-label">CHAYA</div>
-                    <div class="code-time" id="timeChaya"></div>
-                </div>
-                <div class="code-value" id="codeChaya">---</div>
-                <div class="code-hint">tocar = copiar</div>
-            </div>
+            <div class="code-value" id="codeMikra">---</div>
+            <div class="expired-badge">⚠️ CÓDIGO DE OTRO DÍA — Abrí ML para actualizar</div>
+            <div class="code-hint">tocar = copiar</div>
         </div>
 
-        <div class="scanner-area">
-            <div class="scanner-box" id="scannerBox">
-                <div id="qr-reader"></div>
-                <div class="scanner-msg" id="scannerMsg">
-                    <div class="icon">📷</div>
-                    <div class="text">Escáner de códigos QR</div>
-                    <button class="cam-btn" id="camBtn" onclick="iniciarCamara()">Abrir cámara</button>
-                </div>
-                <div class="result-overlay" id="resultOverlay">
-                    <div class="result-bubble" id="resultBubble">
-                        <div class="result-icon" id="resultIcon"></div>
-                        <div class="result-code" id="resultCode"></div>
-                        <div class="result-detail" id="resultDetail"></div>
-                    </div>
-                </div>
+        <div class="code-card chaya" id="cardChaya" onclick="copiar('chaya')">
+            <div class="code-header">
+                <div class="code-label">CHAYA</div>
+                <div class="code-time" id="timeChaya"></div>
             </div>
+            <div class="code-value" id="codeChaya">---</div>
+            <div class="expired-badge">⚠️ CÓDIGO DE OTRO DÍA — Abrí ML para actualizar</div>
+            <div class="code-hint">tocar = copiar</div>
         </div>
 
-        <div class="history-bar" id="historyBar"></div>
+        <button class="reload-btn" id="reloadBtn" onclick="cargar()">⟳ Actualizar</button>
     </div>
 
     <div class="toast" id="toast"></div>
-    <div class="debug-log" id="debugLog"></div>
 
     <script>
         const WORKER_URL = 'https://ml-auth-codes.rafaelassir.workers.dev';
         let codes = { mikra: null, chaya: null };
-        let scanner = null;
-        let scannerRunning = false;
-        let scanHistory = [];
-        let lastScannedCode = '';
-        let lastScanTime = 0;
 
-        // Debug helper (triple-tap title to show)
-        let debugTaps = 0;
-        function dbg(msg) {
-            console.log('[Auth]', msg);
-            const el = document.getElementById('debugLog');
-            el.innerHTML += msg + '<br>';
-            el.scrollTop = el.scrollHeight;
+        function hoyArgentina() {
+            return new Date().toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' });
         }
-        document.querySelector('.codes-bar')?.addEventListener('dblclick', () => {
-            const el = document.getElementById('debugLog');
-            el.style.display = el.style.display === 'none' ? 'block' : 'none';
-        });
 
-        // ── Load codes ──
-        async function cargarCodigos() {
-            dbg('Cargando códigos...');
+        function esDeHoy(updated) {
+            if (!updated) return false;
+            const fechaCodigo = new Date(updated).toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' });
+            return fechaCodigo === hoyArgentina();
+        }
+
+        async function cargar() {
+            const btn = document.getElementById('reloadBtn');
+            const status = document.getElementById('status');
+            btn.disabled = true;
+            status.className = 'status-msg loading';
+            status.textContent = 'Cargando...';
+
             try {
                 const resp = await fetch(`${WORKER_URL}/get-all`);
                 const data = await resp.json();
                 codes = data;
-                dbg(`Códigos: mikra=${data.mikra?.code || 'null'} chaya=${data.chaya?.code || 'null'}`);
 
+                let mikraOk = false, chayaOk = false;
+
+                // MIKRA
+                const cardM = document.getElementById('cardMikra');
                 if (data.mikra?.code) {
                     document.getElementById('codeMikra').textContent = data.mikra.code;
                     document.getElementById('codeMikra').className = 'code-value';
                     document.getElementById('timeMikra').textContent = formatTime(data.mikra.updated);
+                    if (esDeHoy(data.mikra.updated)) {
+                        cardM.classList.remove('expired');
+                        mikraOk = true;
+                    } else {
+                        cardM.classList.add('expired');
+                    }
                 } else {
                     document.getElementById('codeMikra').textContent = 'Sin código';
                     document.getElementById('codeMikra').className = 'code-value missing';
+                    cardM.classList.add('expired');
                 }
 
+                // CHAYA
+                const cardC = document.getElementById('cardChaya');
                 if (data.chaya?.code) {
                     document.getElementById('codeChaya').textContent = data.chaya.code;
                     document.getElementById('codeChaya').className = 'code-value';
                     document.getElementById('timeChaya').textContent = formatTime(data.chaya.updated);
+                    if (esDeHoy(data.chaya.updated)) {
+                        cardC.classList.remove('expired');
+                        chayaOk = true;
+                    } else {
+                        cardC.classList.add('expired');
+                    }
                 } else {
                     document.getElementById('codeChaya').textContent = 'Sin código';
                     document.getElementById('codeChaya').className = 'code-value missing';
+                    cardC.classList.add('expired');
                 }
 
-                // Auto-copy: Chaya → Mikra (Mikra queda en clipboard)
+                // Auto-copy solo los de hoy: Chaya primero, Mikra último
+                let copied = null;
                 try {
-                    if (data.chaya?.code) await navigator.clipboard.writeText(data.chaya.code);
-                    if (data.mikra?.code) {
-                        await navigator.clipboard.writeText(data.mikra.code);
-                        showToast('📋 MIKRA copiado');
+                    if (chayaOk) {
+                        await navigator.clipboard.writeText(data.chaya.code);
+                        flashCard('cardChaya');
+                        copied = 'chaya';
                     }
-                } catch(e) {
-                    dbg('Clipboard no disponible: ' + e.message);
+                    if (mikraOk) {
+                        await new Promise(r => setTimeout(r, 300));
+                        await navigator.clipboard.writeText(data.mikra.code);
+                        flashCard('cardMikra');
+                        copied = 'mikra';
+                    }
+                } catch(e) {}
+
+                // Status
+                if (mikraOk && chayaOk) {
+                    status.className = 'status-msg ok';
+                    status.textContent = '✅ Códigos de hoy — MIKRA en portapapeles';
+                } else if (mikraOk || chayaOk) {
+                    status.className = 'status-msg warn';
+                    const cual = !mikraOk ? 'MIKRA' : 'CHAYA';
+                    status.textContent = `⚠️ ${cual} desactualizado — Abrí ML en esa cuenta`;
+                } else {
+                    status.className = 'status-msg error';
+                    status.textContent = '❌ Códigos vencidos — Abrí ML en ambas cuentas';
                 }
+
+                if (copied) showToast(`📋 ${copied.toUpperCase()} copiado`);
+
             } catch (e) {
-                dbg('Error cargando: ' + e.message);
+                status.className = 'status-msg error';
+                status.textContent = '❌ Error de conexión';
             }
+
+            btn.disabled = false;
         }
 
-        // ── Copy on tap ──
         async function copiar(cuenta) {
-            const code = codes[cuenta]?.code;
-            if (!code) return;
+            const data = codes[cuenta];
+            if (!data?.code) return;
+
+            if (!esDeHoy(data.updated)) {
+                showToast('⚠️ Código viejo — No copiado');
+                return;
+            }
+
             try {
-                await navigator.clipboard.writeText(code);
+                await navigator.clipboard.writeText(data.code);
                 flashCard(cuenta === 'mikra' ? 'cardMikra' : 'cardChaya');
-                showToast(`📋 ${cuenta.toUpperCase()}: ${code}`);
+                showToast(`📋 ${cuenta.toUpperCase()}: ${data.code}`);
             } catch(e) {
-                // Fallback: select + copy
+                // Fallback
                 const ta = document.createElement('textarea');
-                ta.value = code;
+                ta.value = data.code;
                 ta.style.cssText = 'position:fixed;opacity:0';
                 document.body.appendChild(ta);
                 ta.select();
                 document.execCommand('copy');
                 document.body.removeChild(ta);
                 flashCard(cuenta === 'mikra' ? 'cardMikra' : 'cardChaya');
-                showToast(`📋 ${cuenta.toUpperCase()}: ${code}`);
+                showToast(`📋 ${cuenta.toUpperCase()}: ${data.code}`);
             }
         }
 
-        // ── Camera / Scanner ──
-        async function iniciarCamara() {
-            const msg = document.getElementById('scannerMsg');
-            const btn = document.getElementById('camBtn');
-
-            // Check basics
-            if (!window.isSecureContext) {
-                msg.innerHTML = `
-                    <div class="icon">🔒</div>
-                    <div class="error-text">La cámara necesita HTTPS.<br>Abrí la app desde GitHub Pages o localhost.</div>
-                    <button class="cam-btn retry" onclick="iniciarCamara()">Reintentar</button>
-                `;
-                dbg('No es contexto seguro (HTTPS)');
-                return;
-            }
-
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                msg.innerHTML = `
-                    <div class="icon">📵</div>
-                    <div class="error-text">Este navegador no soporta cámara.<br>Probá abrir en Chrome o Safari.</div>
-                    <button class="cam-btn retry" onclick="iniciarCamara()">Reintentar</button>
-                `;
-                dbg('getUserMedia no disponible');
-                return;
-            }
-
-            if (typeof Html5Qrcode === 'undefined') {
-                msg.innerHTML = `
-                    <div class="icon">⚠️</div>
-                    <div class="error-text">Error cargando librería QR.<br>Verificá la conexión a internet.</div>
-                    <button class="cam-btn retry" onclick="location.reload()">Recargar</button>
-                `;
-                dbg('Html5Qrcode no está definido');
-                return;
-            }
-
-            btn.textContent = 'Abriendo...';
-            btn.disabled = true;
-            dbg('Iniciando cámara...');
-
-            try {
-                // Ask permission explicitly first
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'environment' }
-                });
-                // Stop it immediately - just to get permission
-                stream.getTracks().forEach(t => t.stop());
-                dbg('Permiso de cámara OK');
-
-                // Now start QR scanner
-                if (scanner && scannerRunning) {
-                    await scanner.stop();
-                    scannerRunning = false;
-                }
-
-                scanner = new Html5Qrcode("qr-reader");
-
-                const box = document.getElementById('scannerBox');
-                const w = box.clientWidth;
-                const h = box.clientHeight;
-                const qrSize = Math.min(w, h, 280) - 40;
-
-                await scanner.start(
-                    { facingMode: "environment" },
-                    {
-                        fps: 10,
-                        qrbox: { width: Math.max(qrSize, 150), height: Math.max(qrSize, 150) },
-                        disableFlip: false
-                    },
-                    onScanSuccess,
-                    () => {}
-                );
-
-                scannerRunning = true;
-                msg.style.display = 'none';
-                dbg('Cámara iniciada OK');
-
-            } catch (err) {
-                dbg('Error cámara: ' + err);
-                let errorMsg = 'No se pudo abrir la cámara.';
-
-                if (String(err).includes('NotAllowed') || String(err).includes('Permission')) {
-                    errorMsg = 'Permiso de cámara denegado.<br>Andá a Configuración del navegador y habilitá la cámara para este sitio.';
-                } else if (String(err).includes('NotFound') || String(err).includes('DevicesNotFound')) {
-                    errorMsg = 'No se encontró cámara en este dispositivo.';
-                } else if (String(err).includes('NotReadable') || String(err).includes('TrackStartError')) {
-                    errorMsg = 'La cámara está en uso por otra app.<br>Cerrá otras apps y reintentá.';
-                }
-
-                msg.innerHTML = `
-                    <div class="icon">📵</div>
-                    <div class="error-text">${errorMsg}</div>
-                    <button class="cam-btn retry" onclick="iniciarCamara()">Reintentar</button>
-                `;
-            }
-        }
-
-        function onScanSuccess(text) {
-            const now = Date.now();
-            if (text === lastScannedCode && (now - lastScanTime) < 3000) return;
-            lastScannedCode = text;
-            lastScanTime = now;
-            verificarCodigo(text.trim().toUpperCase());
-        }
-
-        function verificarCodigo(code) {
-            const mk = (codes.mikra?.code || '').toUpperCase();
-            const ch = (codes.chaya?.code || '').toUpperCase();
-            let match = false, cuenta = '';
-            if (code === mk) { match = true; cuenta = 'mikra'; }
-            else if (code === ch) { match = true; cuenta = 'chaya'; }
-
-            dbg(`Escaneado: ${code} → ${match ? cuenta.toUpperCase() + ' ✅' : '❌'}`);
-
-            if (navigator.vibrate) navigator.vibrate(match ? [100] : [80, 40, 80, 40, 80]);
-            playBeep(match);
-
-            const overlay = document.getElementById('resultOverlay');
-            document.getElementById('resultIcon').textContent = match ? '✅' : '❌';
-            document.getElementById('resultCode').textContent = code;
-            document.getElementById('resultDetail').textContent = match ? `${cuenta.toUpperCase()} — Válido` : 'No coincide';
-            document.getElementById('resultBubble').className = `result-bubble ${match ? 'match' : 'no-match'}`;
-            overlay.classList.add('show');
-            setTimeout(() => overlay.classList.remove('show'), 1800);
-
-            scanHistory.unshift({ code, match, cuenta, time: new Date() });
-            if (scanHistory.length > 10) scanHistory.pop();
-            renderHistory();
-        }
-
-        function renderHistory() {
-            const el = document.getElementById('historyBar');
-            if (!scanHistory.length) return;
-            el.innerHTML = scanHistory.map(h => {
-                const ct = h.cuenta ? `<span class="history-cuenta ${h.cuenta}">${h.cuenta.toUpperCase()}</span>` : '';
-                return `<div class="history-item ${h.match?'match':'no-match'}">
-                    <div>${h.match?'✅':'❌'} <span class="history-code">${h.code}</span>${ct}</div>
-                    <div class="history-time">${h.time.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}</div>
-                </div>`;
-            }).join('');
-        }
-
-        // ── Helpers ──
         function flashCard(id) {
             const el = document.getElementById(id);
             el.classList.remove('flash');
             void el.offsetWidth;
             el.classList.add('flash');
         }
+
         function showToast(msg) {
             const t = document.getElementById('toast');
             t.textContent = msg;
             t.classList.add('show');
-            setTimeout(() => t.classList.remove('show'), 2000);
+            setTimeout(() => t.classList.remove('show'), 2500);
         }
+
         function formatTime(iso) {
             if (!iso) return '';
-            const d = new Date(iso), min = Math.floor((Date.now() - d) / 60000);
+            const d = new Date(iso);
+            const now = new Date();
+            const min = Math.floor((now - d) / 60000);
             if (min < 1) return 'recién';
-            if (min < 60) return `${min}min`;
+            if (min < 60) return `hace ${min}min`;
             const h = Math.floor(min / 60);
-            if (h < 24) return `${h}h`;
+            if (h < 24) return `hace ${h}h`;
             return d.toLocaleDateString('es-AR');
         }
-        function playBeep(ok) {
-            try {
-                const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                const o = ctx.createOscillator(), g = ctx.createGain();
-                o.connect(g); g.connect(ctx.destination);
-                g.gain.value = 0.3; o.frequency.value = ok ? 880 : 220;
-                o.start(); o.stop(ctx.currentTime + (ok ? 0.15 : 0.4));
-            } catch(e) {}
-        }
 
-        // ── Init ──
-        cargarCodigos();
-        setInterval(cargarCodigos, 5 * 60 * 1000);
-
-        // Auto-start camera on HTTPS
-        if (window.isSecureContext && typeof Html5Qrcode !== 'undefined') {
-            setTimeout(iniciarCamara, 800);
-        } else {
-            dbg('Esperando click manual. Secure=' + window.isSecureContext + ' QRLib=' + (typeof Html5Qrcode !== 'undefined'));
-        }
+        // Init
+        cargar();
+        setInterval(cargar, 5 * 60 * 1000);
 
         if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
     </script>
