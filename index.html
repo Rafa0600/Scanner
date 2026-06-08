@@ -11,6 +11,7 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-192.png">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Outfit:wght@300;500;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root { --safe-top: env(safe-area-inset-top, 0px); --safe-bottom: env(safe-area-inset-bottom, 0px); }
@@ -143,6 +144,26 @@
         .status-msg.error { color: #ff5252; }
         .status-msg.warn { color: #FFE600; }
 
+        /* Scan button */
+        .scan-btn {
+            width: 100%;
+            max-width: 400px;
+            background: linear-gradient(135deg, #FFE600, #FFB300);
+            border: none;
+            color: #0a0a0f;
+            padding: 18px 24px;
+            border-radius: 20px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 17px;
+            font-weight: 900;
+            cursor: pointer;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            transition: all 0.15s;
+            letter-spacing: -0.3px;
+        }
+        .scan-btn:active { transform: scale(0.97); opacity: 0.9; }
+
         /* Reload */
         .reload-btn {
             background: none;
@@ -172,7 +193,7 @@
             border-radius: 10px;
             font-weight: 700;
             font-size: 13px;
-            z-index: 999;
+            z-index: 9999;
             opacity: 0;
             transition: all 0.3s ease;
             pointer-events: none;
@@ -190,6 +211,183 @@
             100% { background: #12121a; border-color: #1e1e2e; }
         }
         .flash { animation: flash-copy 0.5s ease; }
+
+        /* ── SCANNER OVERLAY ── */
+        .scanner-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: #000;
+            z-index: 1000;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .scanner-overlay.active { display: flex; }
+
+        .scanner-video-wrap {
+            position: relative;
+            width: 100%;
+            max-width: 480px;
+            aspect-ratio: 1 / 1;
+            overflow: hidden;
+        }
+
+        #scannerVideo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        /* Viewfinder frame */
+        .viewfinder {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+        .viewfinder::before,
+        .viewfinder::after,
+        .vf-b::before,
+        .vf-b::after {
+            content: '';
+            position: absolute;
+            width: 36px;
+            height: 36px;
+            border-color: #FFE600;
+            border-style: solid;
+        }
+        .viewfinder::before  { top: 16px;  left: 16px;  border-width: 4px 0 0 4px; }
+        .viewfinder::after   { top: 16px;  right: 16px; border-width: 4px 4px 0 0; }
+        .vf-b::before        { bottom: 16px; left: 16px;  border-width: 0 0 4px 4px; }
+        .vf-b::after         { bottom: 16px; right: 16px; border-width: 0 4px 4px 0; }
+
+        /* Scan line animation */
+        @keyframes scanline {
+            0%   { top: 20%; opacity: 1; }
+            50%  { opacity: 0.6; }
+            100% { top: 80%; opacity: 1; }
+        }
+        .scan-line {
+            position: absolute;
+            left: 10%;
+            right: 10%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #FFE600, transparent);
+            animation: scanline 2s ease-in-out infinite alternate;
+            box-shadow: 0 0 8px #FFE600;
+        }
+
+        .scanner-hint {
+            color: #aaa;
+            font-size: 14px;
+            text-align: center;
+            padding: 20px 24px 8px;
+        }
+
+        .scanner-cancel {
+            margin-top: 12px;
+            background: none;
+            border: 1px solid #333;
+            color: #666;
+            padding: 12px 36px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 15px;
+            cursor: pointer;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .scanner-cancel:active { border-color: #ff5252; color: #ff5252; }
+
+        /* ── CUENTA PICKER ── */
+        .picker-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.85);
+            z-index: 2000;
+            align-items: flex-end;
+            justify-content: center;
+            padding-bottom: calc(16px + var(--safe-bottom));
+        }
+        .picker-overlay.active { display: flex; }
+
+        .picker-sheet {
+            background: #12121a;
+            border: 1px solid #1e1e2e;
+            border-radius: 24px 24px 0 0;
+            width: 100%;
+            max-width: 480px;
+            padding: 24px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .picker-title {
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+            font-weight: 500;
+            padding-bottom: 4px;
+        }
+
+        .picker-url {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: #444;
+            text-align: center;
+            word-break: break-all;
+            background: #0a0a0f;
+            border-radius: 8px;
+            padding: 8px 12px;
+        }
+
+        .picker-btn {
+            width: 100%;
+            padding: 18px 20px;
+            border-radius: 16px;
+            border: none;
+            font-family: 'Outfit', sans-serif;
+            font-size: 18px;
+            font-weight: 900;
+            cursor: pointer;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            transition: all 0.12s;
+            letter-spacing: -0.3px;
+        }
+        .picker-btn:active { transform: scale(0.97); }
+        .picker-btn.mikra {
+            background: linear-gradient(135deg, #9C27B0, #E040FB);
+            color: #fff;
+        }
+        .picker-btn.chaya {
+            background: linear-gradient(135deg, #FF6B00, #FFB74D);
+            color: #fff;
+        }
+        .picker-btn.cancel-btn {
+            background: #1e1e2e;
+            color: #666;
+            font-size: 15px;
+            font-weight: 600;
+            padding: 14px 20px;
+        }
+
+        /* error overlay */
+        .cam-error {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            padding: 32px 24px;
+            text-align: center;
+        }
+        .cam-error.active { display: flex; }
+        .cam-error-icon { font-size: 48px; }
+        .cam-error-msg { font-size: 15px; color: #aaa; line-height: 1.5; }
+        .cam-error-detail { font-size: 12px; color: #555; font-family: 'JetBrains Mono', monospace; }
     </style>
 </head>
 <body>
@@ -218,14 +416,53 @@
             <div class="code-hint">tocar = copiar</div>
         </div>
 
+        <button class="scan-btn" onclick="abrirScanner()">📷 Escanear QR del delivery</button>
+
         <button class="reload-btn" id="reloadBtn" onclick="cargar()">⟳ Actualizar</button>
     </div>
 
     <div class="toast" id="toast"></div>
 
+    <!-- ── SCANNER OVERLAY ── -->
+    <div class="scanner-overlay" id="scannerOverlay">
+        <div class="scanner-video-wrap" id="videoWrap">
+            <video id="scannerVideo" autoplay playsinline muted></video>
+            <div class="viewfinder"><div class="vf-b"></div></div>
+            <div class="scan-line"></div>
+        </div>
+        <div class="cam-error" id="camError">
+            <div class="cam-error-icon">📵</div>
+            <div class="cam-error-msg" id="camErrorMsg">No se pudo acceder a la cámara</div>
+            <div class="cam-error-detail" id="camErrorDetail"></div>
+        </div>
+        <div class="scanner-hint" id="scannerHint">Apuntá al QR del delivery</div>
+        <button class="scanner-cancel" onclick="cerrarScanner()">Cancelar</button>
+    </div>
+
+    <!-- ── CUENTA PICKER ── -->
+    <div class="picker-overlay" id="pickerOverlay">
+        <div class="picker-sheet">
+            <div class="picker-title">QR detectado — ¿Qué código usar?</div>
+            <div class="picker-url" id="pickerUrl"></div>
+            <button class="picker-btn mikra" onclick="elegirCuenta('mikra')">
+                MIKRA
+            </button>
+            <button class="picker-btn chaya" onclick="elegirCuenta('chaya')">
+                CHAYA
+            </button>
+            <button class="picker-btn cancel-btn" onclick="cerrarPicker()">Cancelar</button>
+        </div>
+    </div>
+
     <script>
         const WORKER_URL = 'https://ml-auth-codes.rafaelassir.workers.dev';
         let codes = { mikra: null, chaya: null };
+        let scannerStream = null;
+        let scannerAnimFrame = null;
+        let detectedUrl = null;
+        let canvas, ctx;
+
+        // ── CODES ──────────────────────────────────────────────
 
         function hoyArgentina() {
             return new Date().toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' });
@@ -257,12 +494,8 @@
                     document.getElementById('codeMikra').textContent = data.mikra.code;
                     document.getElementById('codeMikra').className = 'code-value';
                     document.getElementById('timeMikra').textContent = formatTime(data.mikra.updated);
-                    if (esDeHoy(data.mikra.updated)) {
-                        cardM.classList.remove('expired');
-                        mikraOk = true;
-                    } else {
-                        cardM.classList.add('expired');
-                    }
+                    if (esDeHoy(data.mikra.updated)) { cardM.classList.remove('expired'); mikraOk = true; }
+                    else { cardM.classList.add('expired'); }
                 } else {
                     document.getElementById('codeMikra').textContent = 'Sin código';
                     document.getElementById('codeMikra').className = 'code-value missing';
@@ -275,48 +508,34 @@
                     document.getElementById('codeChaya').textContent = data.chaya.code;
                     document.getElementById('codeChaya').className = 'code-value';
                     document.getElementById('timeChaya').textContent = formatTime(data.chaya.updated);
-                    if (esDeHoy(data.chaya.updated)) {
-                        cardC.classList.remove('expired');
-                        chayaOk = true;
-                    } else {
-                        cardC.classList.add('expired');
-                    }
+                    if (esDeHoy(data.chaya.updated)) { cardC.classList.remove('expired'); chayaOk = true; }
+                    else { cardC.classList.add('expired'); }
                 } else {
                     document.getElementById('codeChaya').textContent = 'Sin código';
                     document.getElementById('codeChaya').className = 'code-value missing';
                     cardC.classList.add('expired');
                 }
 
-                // Auto-copy solo los de hoy: Chaya primero, Mikra último
-                let copied = null;
+                // Auto-copy: Chaya primero, Mikra queda en portapapeles
                 try {
-                    if (chayaOk) {
-                        await navigator.clipboard.writeText(data.chaya.code);
-                        flashCard('cardChaya');
-                        copied = 'chaya';
-                    }
+                    if (chayaOk) { await navigator.clipboard.writeText(data.chaya.code); flashCard('cardChaya'); }
                     if (mikraOk) {
                         await new Promise(r => setTimeout(r, 300));
                         await navigator.clipboard.writeText(data.mikra.code);
                         flashCard('cardMikra');
-                        copied = 'mikra';
                     }
                 } catch(e) {}
 
-                // Status
                 if (mikraOk && chayaOk) {
                     status.className = 'status-msg ok';
                     status.textContent = '✅ Códigos de hoy — MIKRA en portapapeles';
                 } else if (mikraOk || chayaOk) {
                     status.className = 'status-msg warn';
-                    const cual = !mikraOk ? 'MIKRA' : 'CHAYA';
-                    status.textContent = `⚠️ ${cual} desactualizado — Abrí ML en esa cuenta`;
+                    status.textContent = `⚠️ ${!mikraOk ? 'MIKRA' : 'CHAYA'} desactualizado — Abrí ML en esa cuenta`;
                 } else {
                     status.className = 'status-msg error';
                     status.textContent = '❌ Códigos vencidos — Abrí ML en ambas cuentas';
                 }
-
-                if (copied) showToast(`📋 ${copied.toUpperCase()} copiado`);
 
             } catch (e) {
                 status.className = 'status-msg error';
@@ -329,18 +548,10 @@
         async function copiar(cuenta) {
             const data = codes[cuenta];
             if (!data?.code) return;
-
-            if (!esDeHoy(data.updated)) {
-                showToast('⚠️ Código viejo — No copiado');
-                return;
-            }
-
+            if (!esDeHoy(data.updated)) { showToast('⚠️ Código viejo — No copiado'); return; }
             try {
                 await navigator.clipboard.writeText(data.code);
-                flashCard(cuenta === 'mikra' ? 'cardMikra' : 'cardChaya');
-                showToast(`📋 ${cuenta.toUpperCase()}: ${data.code}`);
             } catch(e) {
-                // Fallback
                 const ta = document.createElement('textarea');
                 ta.value = data.code;
                 ta.style.cssText = 'position:fixed;opacity:0';
@@ -348,10 +559,193 @@
                 ta.select();
                 document.execCommand('copy');
                 document.body.removeChild(ta);
-                flashCard(cuenta === 'mikra' ? 'cardMikra' : 'cardChaya');
-                showToast(`📋 ${cuenta.toUpperCase()}: ${data.code}`);
+            }
+            flashCard(cuenta === 'mikra' ? 'cardMikra' : 'cardChaya');
+            showToast(`📋 ${cuenta.toUpperCase()}: ${data.code}`);
+        }
+
+        // ── SCANNER ────────────────────────────────────────────
+
+        async function abrirScanner() {
+            detectedUrl = null;
+            const overlay = document.getElementById('scannerOverlay');
+            const videoEl = document.getElementById('scannerVideo');
+            const errorEl = document.getElementById('camError');
+            const hintEl  = document.getElementById('scannerHint');
+            const videoWrap = document.getElementById('videoWrap');
+
+            errorEl.classList.remove('active');
+            videoWrap.style.display = 'block';
+            hintEl.textContent = 'Apuntá al QR del delivery';
+            overlay.classList.add('active');
+
+            // Init canvas una sola vez
+            if (!canvas) {
+                canvas = document.createElement('canvas');
+                ctx = canvas.getContext('2d', { willReadFrequently: true });
+            }
+
+            try {
+                // Pedir cámara trasera explícitamente
+                const constraints = {
+                    video: {
+                        facingMode: { ideal: 'environment' },
+                        width:  { ideal: 1280 },
+                        height: { ideal: 1280 }
+                    },
+                    audio: false
+                };
+
+                scannerStream = await navigator.mediaDevices.getUserMedia(constraints);
+                videoEl.srcObject = scannerStream;
+
+                // Esperar que el video tenga dimensiones reales
+                await new Promise((resolve, reject) => {
+                    videoEl.onloadedmetadata = () => {
+                        videoEl.play().then(resolve).catch(reject);
+                    };
+                    videoEl.onerror = reject;
+                    setTimeout(reject, 8000); // timeout de seguridad
+                });
+
+                escanearFrame();
+
+            } catch (err) {
+                videoWrap.style.display = 'none';
+                errorEl.classList.add('active');
+                hintEl.textContent = '';
+
+                const msgEl    = document.getElementById('camErrorMsg');
+                const detailEl = document.getElementById('camErrorDetail');
+
+                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                    msgEl.textContent = 'Permiso de cámara denegado.\nAndá a Configuración → Permisos del navegador y habilitá la cámara.';
+                } else if (err.name === 'NotFoundError') {
+                    msgEl.textContent = 'No se encontró ninguna cámara en este dispositivo.';
+                } else if (err.name === 'NotReadableError') {
+                    msgEl.textContent = 'La cámara está siendo usada por otra app. Cerrala y volvé a intentar.';
+                } else if (err.name === 'OverconstrainedError') {
+                    msgEl.textContent = 'No se pudo acceder a la cámara trasera.';
+                } else {
+                    msgEl.textContent = 'No se pudo acceder a la cámara.';
+                }
+                detailEl.textContent = err.name + (err.message ? ': ' + err.message : '');
             }
         }
+
+        function escanearFrame() {
+            const videoEl = document.getElementById('scannerVideo');
+
+            if (!scannerStream || videoEl.readyState < 2) {
+                scannerAnimFrame = requestAnimationFrame(escanearFrame);
+                return;
+            }
+
+            const vw = videoEl.videoWidth;
+            const vh = videoEl.videoHeight;
+            if (vw === 0 || vh === 0) {
+                scannerAnimFrame = requestAnimationFrame(escanearFrame);
+                return;
+            }
+
+            canvas.width  = vw;
+            canvas.height = vh;
+            ctx.drawImage(videoEl, 0, 0, vw, vh);
+
+            let imageData;
+            try {
+                imageData = ctx.getImageData(0, 0, vw, vh);
+            } catch(e) {
+                scannerAnimFrame = requestAnimationFrame(escanearFrame);
+                return;
+            }
+
+            const code = jsQR(imageData.data, vw, vh, { inversionAttempts: 'dontInvert' });
+
+            if (code && code.data && code.data.startsWith('http')) {
+                // Detectado
+                cancelAnimationFrame(scannerAnimFrame);
+                detectedUrl = code.data;
+                detenerCamara();
+                mostrarPicker(detectedUrl);
+            } else {
+                scannerAnimFrame = requestAnimationFrame(escanearFrame);
+            }
+        }
+
+        function detenerCamara() {
+            if (scannerAnimFrame) { cancelAnimationFrame(scannerAnimFrame); scannerAnimFrame = null; }
+            if (scannerStream) {
+                scannerStream.getTracks().forEach(t => t.stop());
+                scannerStream = null;
+            }
+            const videoEl = document.getElementById('scannerVideo');
+            videoEl.srcObject = null;
+        }
+
+        function cerrarScanner() {
+            detenerCamara();
+            document.getElementById('scannerOverlay').classList.remove('active');
+        }
+
+        // ── PICKER ─────────────────────────────────────────────
+
+        function mostrarPicker(url) {
+            document.getElementById('scannerOverlay').classList.remove('active');
+
+            // Mostrar URL recortada
+            const short = url.length > 60 ? url.slice(0, 57) + '…' : url;
+            document.getElementById('pickerUrl').textContent = short;
+
+            // Deshabilitar botones si el código no es de hoy
+            const btnChaya = document.querySelector('.picker-btn.chaya');
+            const btnMikra = document.querySelector('.picker-btn.mikra');
+
+            const chayaOk = codes.chaya?.code && esDeHoy(codes.chaya?.updated);
+            const mikraOk = codes.mikra?.code && esDeHoy(codes.mikra?.updated);
+
+            btnChaya.disabled = !chayaOk;
+            btnChaya.style.opacity = chayaOk ? '1' : '0.3';
+            btnChaya.textContent = chayaOk ? `CHAYA — ${codes.chaya.code}` : 'CHAYA — sin código de hoy';
+
+            btnMikra.disabled = !mikraOk;
+            btnMikra.style.opacity = mikraOk ? '1' : '0.3';
+            btnMikra.textContent = mikraOk ? `MIKRA — ${codes.mikra.code}` : 'MIKRA — sin código de hoy';
+
+            document.getElementById('pickerOverlay').classList.add('active');
+        }
+
+        async function elegirCuenta(cuenta) {
+            cerrarPicker();
+            if (!detectedUrl) return;
+
+            const data = codes[cuenta];
+            if (!data?.code) return;
+
+            // Copiar código al portapapeles
+            try {
+                await navigator.clipboard.writeText(data.code);
+            } catch(e) {
+                const ta = document.createElement('textarea');
+                ta.value = data.code;
+                ta.style.cssText = 'position:fixed;opacity:0';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+            }
+
+            showToast(`📋 ${data.code} copiado — abriendo ML…`);
+
+            // Abrir la URL de ML (pequeño delay para que el toast se vea)
+            setTimeout(() => { window.open(detectedUrl, '_blank'); }, 600);
+        }
+
+        function cerrarPicker() {
+            document.getElementById('pickerOverlay').classList.remove('active');
+        }
+
+        // ── UTILS ──────────────────────────────────────────────
 
         function flashCard(id) {
             const el = document.getElementById(id);
@@ -379,10 +773,9 @@
             return d.toLocaleDateString('es-AR');
         }
 
-        // Init
+        // ── INIT ───────────────────────────────────────────────
         cargar();
         setInterval(cargar, 5 * 60 * 1000);
-
         if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
     </script>
 </body>
