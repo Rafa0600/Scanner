@@ -255,6 +255,7 @@
 
         <div class="scanner-section" id="scannerSection" style="display:none;">
             <div id="qr-reader"></div>
+            <button class="scan-btn" id="torchBtn" style="display:none; margin:8px; width:calc(100% - 16px);" onclick="toggleTorch()">🔦 Linterna</button>
         </div>
 
         <div id="resultArea"></div>
@@ -333,36 +334,89 @@
             }
         }
 
+        let torchOn = false;
+
         async function startScanner() {
             scanning = true;
 
-            scanner = new Html5Qrcode("qr-reader");
+            // Activar el BarcodeDetector nativo del celular (mucho más rápido y fiable
+            // que el decodificador JS). Es lo que hace que escanee al instante.
+            scanner = new Html5Qrcode("qr-reader", {
+                verbose: false,
+                experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+                formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ]
+            });
+
+            const config = {
+                fps: 15,
+                // Recuadro adaptable: 80% del lado más corto del video (mín 200px).
+                // Sin aspectRatio fijo, así usa la resolución completa del sensor.
+                qrbox: (vw, vh) => {
+                    const min = Math.min(vw, vh);
+                    const size = Math.max(200, Math.floor(min * 0.8));
+                    return { width: size, height: size };
+                }
+            };
+
+            // Cámara trasera + alta resolución + enfoque continuo (evita el QR borroso).
+            const richConstraints = {
+                facingMode: { ideal: "environment" },
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+                advanced: [{ focusMode: "continuous" }]
+            };
 
             try {
-                await scanner.start(
-                    { facingMode: "environment" },
-                    {
-                        fps: 10,
-                        qrbox: { width: 250, height: 250 },
-                        aspectRatio: 1
-                    },
-                    onScanSuccess,
-                    () => {} // ignore errors
-                );
+                await scanner.start(richConstraints, config, onScanSuccess, () => {});
             } catch (err) {
-                console.error("Error iniciando cámara:", err);
-                document.getElementById('resultArea').innerHTML = `
-                    <div class="result-card no-match">
-                        <div class="result-icon">📵</div>
-                        <div class="result-detail">No se pudo acceder a la cámara</div>
-                    </div>
-                `;
-                scanning = false;
+                // Algunos celulares (sobre todo iOS) rechazan las constraints avanzadas.
+                // Reintentar con lo básico antes de darse por vencido.
+                console.warn("Constraints avanzadas fallaron, reintentando simple:", err);
+                try {
+                    await scanner.start({ facingMode: "environment" }, config, onScanSuccess, () => {});
+                } catch (err2) {
+                    console.error("Error iniciando cámara:", err2);
+                    document.getElementById('resultArea').innerHTML = `
+                        <div class="result-card no-match">
+                            <div class="result-icon">📵</div>
+                            <div class="result-detail">No se pudo acceder a la cámara</div>
+                        </div>
+                    `;
+                    scanning = false;
+                    return;
+                }
+            }
+
+            setupTorch();
+        }
+
+        function setupTorch() {
+            const btn = document.getElementById('torchBtn');
+            torchOn = false;
+            btn.classList.remove('active');
+            try {
+                const caps = scanner.getRunningTrackCapabilities();
+                btn.style.display = (caps && caps.torch) ? 'block' : 'none';
+            } catch (e) {
+                btn.style.display = 'none';
+            }
+        }
+
+        async function toggleTorch() {
+            if (!scanner) return;
+            torchOn = !torchOn;
+            try {
+                await scanner.applyVideoConstraints({ advanced: [{ torch: torchOn }] });
+                document.getElementById('torchBtn').classList.toggle('active', torchOn);
+            } catch (e) {
+                console.warn('No se pudo cambiar la linterna:', e);
             }
         }
 
         function stopScanner() {
             scanning = false;
+            torchOn = false;
+            document.getElementById('torchBtn').style.display = 'none';
             if (scanner) {
                 scanner.stop().catch(() => {});
                 scanner = null;
